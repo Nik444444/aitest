@@ -9,12 +9,8 @@ const UserProfile = ({ onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [apiKeys, setApiKeys] = useState({
-    gemini_api_key: '',
-    openai_api_key: '',
-    anthropic_api_key: '',
-    openrouter_api_key: ''
-  });
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     loadProfile();
@@ -40,43 +36,40 @@ const UserProfile = ({ onClose }) => {
     }
   };
 
-  const handleApiKeyChange = (e) => {
-    setApiKeys({
-      ...apiKeys,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const updateApiKeys = async (e) => {
+  const handleGeminiApiKeySubmit = async (e) => {
     e.preventDefault();
+    if (!geminiApiKey.trim()) {
+      setError('Пожалуйста, введите Gemini API ключ');
+      return;
+    }
+
     setIsUpdating(true);
     setError('');
+    setSuccess('');
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/api-keys`, {
-        method: 'PUT',
+      const response = await fetch(`${BACKEND_URL}/api/gemini-api-key`, {
+        method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          api_keys: apiKeys
+          gemini_api_key: geminiApiKey.trim()
         })
       });
 
       if (response.ok) {
-        await loadProfile(); // Reload profile to show updated keys
-        setApiKeys({
-          gemini_api_key: '',
-          openai_api_key: '',
-          anthropic_api_key: '',
-          openrouter_api_key: ''
-        });
-        alert('API ключи успешно обновлены!');
+        await loadProfile(); // Reload profile to show updated status
+        setGeminiApiKey('');
+        setSuccess('Gemini API ключ успешно сохранен!');
+        
+        // Update user context
+        user.has_gemini_api_key = true;
       } else {
         const data = await response.json();
-        setError(data.detail || 'Failed to update API keys');
+        setError(data.detail || 'Failed to save Gemini API key');
       }
     } catch (err) {
       setError('Network error');
-      console.error('API key update error:', err);
+      console.error('Gemini API key save error:', err);
     } finally {
       setIsUpdating(false);
     }
@@ -134,11 +127,9 @@ const UserProfile = ({ onClose }) => {
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">{profile.name}</h3>
                     <p className="text-gray-600">{profile.email}</p>
-                    {profile.oauth_provider && (
-                      <p className="text-sm text-blue-600">
-                        Авторизован через {profile.oauth_provider}
-                      </p>
-                    )}
+                    <p className="text-sm text-blue-600">
+                      Авторизован через {profile.oauth_provider}
+                    </p>
                   </div>
                 </div>
 
@@ -154,98 +145,68 @@ const UserProfile = ({ onClose }) => {
                     <p className="font-medium">
                       {profile.last_login
                         ? new Date(profile.last_login).toLocaleDateString('ru-RU')
-                        : 'Никогда'
+                        : 'Сейчас'
                       }
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* API Keys Status */}
+              {/* Gemini API Key Status */}
               <div className="bg-gray-50 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-4">Статус API ключей</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(profile.api_keys_status || {}).map(([provider, status]) => (
-                    <div key={provider} className="bg-white rounded-xl p-4 border">
-                      <div className="flex items-center justify-between">
-                        <h5 className="font-medium text-gray-900 capitalize">
-                          {provider.replace('_api_key', '').replace('_', ' ')}
-                        </h5>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          status.has_key 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {status.has_key ? 'Настроен' : 'Не настроен'}
-                        </span>
-                      </div>
-                      {status.has_key && status.masked_key && (
-                        <p className="text-sm text-gray-500 mt-1 font-mono">
-                          {status.masked_key}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                <h4 className="text-lg font-bold text-gray-900 mb-4">Статус Gemini API</h4>
+                <div className="bg-white rounded-xl p-4 border">
+                  <div className="flex items-center justify-between">
+                    <h5 className="font-medium text-gray-900">
+                      Google Gemini API
+                    </h5>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      profile.has_gemini_api_key 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {profile.has_gemini_api_key ? '✅ Настроен' : '❌ Не настроен'}
+                    </span>
+                  </div>
+                  {profile.has_gemini_api_key ? (
+                    <p className="text-sm text-gray-500 mt-2">
+                      API ключ сохранен и готов к использованию
+                    </p>
+                  ) : (
+                    <p className="text-sm text-red-600 mt-2">
+                      Добавьте ваш Gemini API ключ для использования приложения
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Update API Keys */}
+              {/* Add/Update Gemini API Key */}
               <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 mb-4">Обновить API ключи</h4>
-                <form onSubmit={updateApiKeys} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Google Gemini API Key
-                    </label>
-                    <input
-                      type="password"
-                      name="gemini_api_key"
-                      value={apiKeys.gemini_api_key}
-                      onChange={handleApiKeyChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Введите новый ключ (оставьте пустым, чтобы не изменять)"
-                    />
-                  </div>
+                <h4 className="text-lg font-bold text-gray-900 mb-4">
+                  {profile.has_gemini_api_key ? 'Обновить' : 'Добавить'} Gemini API ключ
+                </h4>
+                
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <h5 className="font-medium text-blue-900 mb-2">💡 Как получить Gemini API ключ:</h5>
+                  <ol className="text-sm text-blue-800 space-y-1">
+                    <li>1. Перейдите на <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Google AI Studio</a></li>
+                    <li>2. Создайте новый API ключ</li>
+                    <li>3. Скопируйте ключ и вставьте его ниже</li>
+                  </ol>
+                </div>
 
+                <form onSubmit={handleGeminiApiKeySubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      OpenAI API Key
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Gemini API ключ
                     </label>
                     <input
                       type="password"
-                      name="openai_api_key"
-                      value={apiKeys.openai_api_key}
-                      onChange={handleApiKeyChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Введите новый ключ (оставьте пустым, чтобы не изменять)"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Anthropic API Key
-                    </label>
-                    <input
-                      type="password"
-                      name="anthropic_api_key"
-                      value={apiKeys.anthropic_api_key}
-                      onChange={handleApiKeyChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Введите новый ключ (оставьте пустым, чтобы не изменять)"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      OpenRouter API Key
-                    </label>
-                    <input
-                      type="password"
-                      name="openrouter_api_key"
-                      value={apiKeys.openrouter_api_key}
-                      onChange={handleApiKeyChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Введите новый ключ (оставьте пустым, чтобы не изменять)"
+                      value={geminiApiKey}
+                      onChange={(e) => setGeminiApiKey(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="AIzaSy... (вставьте ваш Gemini API ключ)"
+                      required
                     />
                   </div>
 
@@ -255,12 +216,18 @@ const UserProfile = ({ onClose }) => {
                     </div>
                   )}
 
+                  {success && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-green-600 text-sm">{success}</p>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={isUpdating}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-2 px-4 rounded-lg font-medium hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-600 hover:to-purple-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isUpdating ? 'Обновление...' : 'Обновить API ключи'}
+                    {isUpdating ? 'Сохранение...' : 'Сохранить API ключ'}
                   </button>
                 </form>
               </div>
@@ -272,7 +239,7 @@ const UserProfile = ({ onClose }) => {
                     logout();
                     onClose();
                   }}
-                  className="w-full bg-red-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-600 transition-colors"
+                  className="w-full bg-red-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-red-600 transition-colors"
                 >
                   Выйти из аккаунта
                 </button>
