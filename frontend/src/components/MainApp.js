@@ -358,8 +358,11 @@ const MainApp = () => {
 
           {!isAuthenticated() && (
             <div className="mt-3">
-              <p className="text-xs text-gray-500 mb-2">
-                Войдите в систему для персонального использования ваших API ключей
+              <p className="text-sm text-gray-500 mb-2">
+                Войдите через Google и добавьте ваш Gemini API ключ для персонального использования
+              </p>
+              <p className="text-xs text-gray-400">
+                Или используйте системные AI провайдеры для анализа без входа
               </p>
             </div>
           )}
