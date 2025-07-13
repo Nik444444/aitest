@@ -13,8 +13,6 @@ import jwt
 import json
 import tempfile
 import shutil
-from google.oauth2 import id_token
-from google.auth.transport import requests
 import asyncio
 
 # Load LLM Manager
