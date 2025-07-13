@@ -348,6 +348,11 @@ const MainApp = () => {
               >
                 Профиль
               </button>
+              {!user.has_gemini_api_key && (
+                <div className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                  ⚠️ Добавьте API ключ
+                </div>
+              )}
             </div>
           )}
 
