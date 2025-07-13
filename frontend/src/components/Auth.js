@@ -1,33 +1,58 @@
 import React, { useState, useContext } from 'react';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { AuthContext } from '../context/AuthContext';
 
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: ''
+  });
 
   const { login } = useContext(AuthContext);
 
-  const handleGoogleSuccess = async (credentialResponse) => {
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleQuickLogin = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim() || !formData.email.trim()) {
+      setError('Пожалуйста, заполните все поля');
+      return;
+    }
+
+    if (!formData.email.includes('@')) {
+      setError('Введите корректный email');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
 
-      // Decode the JWT token to get user info
-      const userInfo = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
+      // Create mock user data
+      const mockUserInfo = {
+        sub: `demo_${Date.now()}`,
+        email: formData.email.trim(),
+        name: formData.name.trim(),
+        picture: `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=4F46E5&color=fff`
+      };
       
       // Send to our backend for processing
-      const response = await fetch(`${BACKEND_URL}/api/auth/google/verify`, {
+      const response = await fetch(`${BACKEND_URL}/api/auth/demo/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          credential: credentialResponse.credential,
-          user_info: userInfo
+          user_info: mockUserInfo
         }),
       });
 
@@ -36,18 +61,14 @@ const Auth = () => {
       if (response.ok) {
         login(data.access_token, data.user);
       } else {
-        setError(data.detail || 'Google authentication failed');
+        setError(data.detail || 'Ошибка входа');
       }
     } catch (err) {
-      setError('Google authentication failed. Please try again.');
-      console.error('Google auth error:', err);
+      setError('Ошибка сети. Попробуйте еще раз.');
+      console.error('Auth error:', err);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleError = () => {
-    setError('Google authentication failed. Please try again.');
   };
 
   const AuthForm = () => (
